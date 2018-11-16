@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
-import numpy as np
 from abc import ABCMeta, abstractmethod
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import make_scorer, roc_curve, auc, recall_score, f1_score
 
 class AbstractModel(metaclass=ABCMeta):
 

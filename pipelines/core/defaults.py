@@ -2,7 +2,7 @@
 import copy
 from sklearn.metrics import make_scorer, recall_score, f1_score, precision_score
 
-''' Default data location for Le Particulier '''
+''' Default data location'''
 default_data_path = ''
 
 '''
@@ -31,6 +31,10 @@ default_rf_parameter_grid = {
     'randomforestclassifier__max_features': ['sqrt', 'log2']
 }
 
+default_gbm_parameter_grid = {
+
+}
+
 '''
 Default base parameters that should be shared amongst all model types.
 
@@ -49,18 +53,32 @@ base_parameters = {
     # test % from a train-test split... results in 85% train 15% test
     'test_size': 0.15,
     # target column name being predicted by model
-    'target': 'pnd',
+    'target': '',
     # feature columns to be used in training the model. MUST include target
     # coulumn name
     'features': []
 }
 
-required_rf_params = [k for k in base_parameters.keys()]
+_base_params = [k for k in base_parameters.keys()]
+
+required_rf_params = copy.deepcopy(_base_params)
 required_rf_params.append('rf_parameter_grid')
+
+required_gbm_params = copy.deepcopy(_base_params)
+required_gbm_params.append('gmb_parameter_grid')
 
 def __create_default_rf_params__():
     _default_rf_params = copy.deepcopy(base_parameters)
     _default_rf_params.update({'rf_parameter_grid': default_rf_parameter_grid})
     return _default_rf_params
 
+def __create_default_gbm_params__():
+    _default_gbm_params = copy.deepcopy(base_parameters)
+    _default_rf_params.update({'rf_parameter_grid': default_gbm_parameter_grid})
+    return _default_rf_params
+
+# I very much want to move away from this implementation choice...
+# Need to create generic functions that return dictionaries, and allow
+# parameters to be passed.
 default_rf_params = __create_default_rf_params__()
+default_gbm_params = __create_default_gbm_params__()
