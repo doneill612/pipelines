@@ -114,6 +114,7 @@ class ModelPipeline(object):
         model_logging.info('Pipeline complete with %i nodes.' % len(self._nodes))
 
     def fit(self):
+        model_logging.info('Fitting pipeline...')
         model = self._terminal_node[1]
         if not isinstance(model, NeuralNetwork):
             # need to rework _params dictionary, individual models
@@ -129,15 +130,38 @@ class ModelPipeline(object):
         # TODO
         pass
 
-    def _fit_dl_model(self):
-        # For now assume no pre-processing steps...
-        # Going to have to manually create pipeline execution for
-        # dl models, as we cannot use imblearn Pipeline because our model node
-        # does not implement Estimator contract from sklearn
 
-        # do pre-processing steps from pipeline
+    def _transform(self, X_train, X_validate, X_test):
+        model_logging.info('DL Model requires a priori transform execution.')
+        model_logging.info('Running pipeline transforms...')
+        X_train_transformed = None
+        X_test_transformed = None
+        X_validate_transformed = None
+        for node in self._nodes:
+            node_op = node[1]
+            X_train_transformed = node_op.transform(X_train)
+            X_validate_transformed = node_op.transform(X_validate)
+            X_test_transformed = node_op.transform(X_test)
+        model_logging.info('%i transforms executed successfully.' % len(self._nodes))
+        return X_train_transformed, X_validate_transformed, X_test_transformed
+
+    def _fit_dl_model(self):
         model = self._terminal_node[1]
         model.compile()
+
+        data = model.build_train_test_set(w_validate=True)
+        X_train = data['X_train']
+        X_validate = data['X_validate']
+        X_test = data['X_test']
+        y_train = data['y_train']
+        y_validate = data['y_validate']
+        y_test = data['y_test']
+
+        X_train, X_validate, X_test = self._transform(X_train, X_validate, X_test)
+        model.fit(X_train, y_train, X_validate, y_validate)
+        model_logging.info('Training complete!')
+        model.evaluate(X_test, y_test)
+
 
 
     def _fit_gs(self, folds: int=10, refit: str='f1_score', n_jobs: int=-1):
@@ -166,7 +190,6 @@ class ModelPipeline(object):
             model_logging.fatal('Could not fit pipeline. Model pipeline is still '
                                 'accepting nodes, meaning no terminal (model) '
                                 'node has yet been added.')
-        model_logging.info('Fitting pipeline...')
         model = self._terminal_node[1]
         parameter_grid = model.get_parameter_grid()
         scorers = model.get_scorers()

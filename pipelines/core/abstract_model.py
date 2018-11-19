@@ -34,13 +34,32 @@ class AbstractModel(metaclass=ABCMeta):
                           'Could not extract features.')
         return self._df[self._params['target']]
 
-    def build_train_test_set(self):
+    def build_train_test_set(self, w_validate: bool=False):
         features = self._extract_features()
         labels = self._extract_labels()
-        return train_test_split(features, labels,
-                                test_size=self._params['test_size'],
-                                stratify=labels,
-                                random_state=1337)
+        if not w_validate:
+            return train_test_split(features, labels,
+                                    test_size=self._params['test_size'],
+                                    stratify=labels,
+                                    random_state=1337)
+        else:
+            train_validate_test_split = train_test_split(features, labels,
+                                                         test_size=self._params['test_size'],
+                                                         stratify=labels,
+                                                         random_state=1337)
+            validate_test_split = train_test_split(train_validate_test_split[1],
+                                                   train_validate_test_split[3],
+                                                   test_size=self._params['test_size'],
+                                                   stratify=train_validate_test_split[3],
+                                                   random_state=1337)
+            return {
+                'X_train': train_validate_test_split[0],
+                'X_validate': validate_test_split[0],
+                'X_test': validate_test_split[1],
+                'y_train': train_validate_test_split[2],
+                'y_validate': validate_test_split[2],
+                'y_test': validate_test_split[3],
+            }
 
     def load_data(self):
         if not self._df_loaded:
