@@ -2,6 +2,7 @@
 import pandas as pd
 from core import model_logging
 from core.abstract_model import AbstractModel
+from core.nns.nn import NeuralNetwork
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
@@ -112,12 +113,41 @@ class ModelPipeline(object):
         self._accepting_nodes = False
         model_logging.info('Pipeline complete with %i nodes.' % len(self._nodes))
 
-    def fit(self, folds: int=10, refit: str='f1_score', n_jobs: int=-1):
+    def fit(self):
+        model = self._terminal_node[1]
+        if not isinstance(model, NeuralNetwork):
+            # need to rework _params dictionary, individual models
+            # should not have uniquely named parameter_grid entries.
+            if model._params['parameter_grid'] is not None:
+                self._fit_gs()
+            else:
+                self._fit_ml_model()
+        else:
+            self._fit_dl_model()
+
+    def _fit_ml_model(self):
+        # TODO
+        pass
+
+    def _fit_dl_model(self):
+        # For now assume no pre-processing steps...
+        # Going to have to manually create pipeline execution for
+        # dl models, as we cannot use imblearn Pipeline because our model node
+        # does not implement Estimator contract from sklearn
+
+        # do pre-processing steps from pipeline
+        model = self._terminal_node[1]
+        model.compile()
+
+
+    def _fit_gs(self, folds: int=10, refit: str='f1_score', n_jobs: int=-1):
         '''
         Sequentially executes the nodes in the model pipeline.
 
-        The model node in the pipeline contains a dictionary encapsulating
-        the model hyperparameters to be tested. The different combinations of
+        This method is used for grid search training.
+
+        The model node in the pipeline contains a dictionary entry 'parameter_grid'
+        which contains the model hyperparameters to be tested. The different combinations of
         hyperparameters constitute a collection of ML models to be trained.
         A grid serach is performed to find the optimal combination of model parameters
         to fit the training data. K-fold cross validation is used
@@ -161,8 +191,10 @@ class ModelPipeline(object):
     def _build_pipeline(self):
         model_def = self._terminal_node[1].get_model_def()
         node_name = self._terminal_node[0]
-        self._add_node(node_name, model_def)
-        self._pipeline = make_pipeline(*[node[1] for node in self._nodes])
+        if not isinstance(model, NeuralNetwork):
+            self._add_node(node_name, model_def)
+            self._pipeline = make_pipeline(*[node[1] for node in self._nodes])
+
 
     def _verify_node_name(self, node_name: str):
         for node in self._nodes:
