@@ -60,7 +60,7 @@ class Node(object):
                           name=name, op=smote)
         return smote_node
 
-    @static
+    @staticmethod
     def ml_node(name, model):
         if not isinstance(model, AbstractModel):
             model_logging.fatal('assertion', 'Attempted to use unsupported '
@@ -71,7 +71,7 @@ class Node(object):
                           name=name, op=model)
         return model_node
 
-    @static
+    @staticmethod
     def dl_node(name, model):
         if not isinstance(model, NeuralNetwork):
             model_logging.fatal('assertion', 'Attempted to use unsupported '
