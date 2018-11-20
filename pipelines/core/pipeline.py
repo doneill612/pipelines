@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 from core import model_logging
+from core.node import Node, NodeType
 from core.abstract_model import AbstractModel
 from core.nns.nn import NeuralNetwork
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.metrics import confusion_matrix
 from imblearn.pipeline import make_pipeline
-from imblearn.over_sampling import SMOTE
+
 
 class ModelPipeline(object):
     '''
@@ -59,8 +58,8 @@ class ModelPipeline(object):
         params:
             node_name : a string representing the name of this node
         '''
-        std_scaler = StandardScaler()
-        self._add_node(node_name, std_scaler)
+        _std_scaler_node = Node.std_scaler_node(name=node_name)
+        self._add_node(_std_scaler_node)
 
     def add_pca_node(self, node_name: str, components: int):
         '''
@@ -72,8 +71,8 @@ class ModelPipeline(object):
             node_name  : a string representing the name of this node
             components : the number of principal components to use in PCA
         '''
-        pca = PCA(n_components=components)
-        self._add_node(node_name, pca)
+        _pca_node = Node.pca_node(name=node_name, n_components=components)
+        self._add_node(_pca_node)
 
     def add_smote_node(self, node_name: str, random_state: int=1337, ratio: float=1.0):
         '''
@@ -88,8 +87,8 @@ class ModelPipeline(object):
             ratio        : the desired ratio between the majority class and
                            the minority class after oversampling is performed
         '''
-        smote = SMOTE(random_state=random_state, ratio=ratio)
-        self._add_node(node_name, smote)
+        _smote_node = Node.smote_node(name=node_name, seed=random_state, ratio=ratio)
+        self._add_node(_smote_node)
 
     def add_model_node(self, node_name: str, model):
         '''
@@ -108,7 +107,10 @@ class ModelPipeline(object):
             model_logging.fatal('assertion', 'Attempted to add unsupported '
                                 'model type. Models must be subclasses of '
                                 'AbstractModel.')
-        self._terminal_node = (node_name, model,)
+        model_node = Node.dl_node(name=node_name, model=model) \
+                     if isinstance(model, NeuralNetwork) \
+                     else Node.ml_node(name=node_name, model=model)
+        self._terminal_node = model_node
         self._build_pipeline()
         self._accepting_nodes = False
         model_logging.info('Pipeline complete with %i nodes.' % len(self._nodes))
@@ -134,22 +136,37 @@ class ModelPipeline(object):
     def _transform(self, X_train, X_validate, X_test):
         model_logging.info('DL Model requires a priori transform execution.')
         model_logging.info('Running pipeline transforms...')
-        X_train_transformed = None
-        X_test_transformed = None
-        X_validate_transformed = None
+        X_train_transformed = X_train
+        X_test_transformed = X_validate
+        X_validate_transformed = X_test
+        train_mod_count = 0
+        validate_mod_count = 0
+        test_mod_count = 0
         for node in self._nodes:
-            node_op = node[1]
-            X_train_transformed = node_op.transform(X_train)
-            X_validate_transformed = node_op.transform(X_validate)
-            X_test_transformed = node_op.transform(X_test)
+            if node.is_tranform_node:
+                X_train_transformed = node.transform(X_train)
+                X_validate_transformed = node.transform(X_validate)
+                X_test_transformed = node.transform(X_test)
+                train_mod_count += 1
+                validate_mod_count += 1
+                test_mod_count += 1
+            elif node.is_fit_transform_node:
+                X_train_transformed = node.transform(X_train)
+                X_validate_transformed = node.transform(X_validate)
+                train_mod_count += 1
+                validate_mod_count += 1
         model_logging.info('%i transforms executed successfully.' % len(self._nodes))
+        model_logging.info('Training set mod count = %i' % len(train_mod_count))
+        model_logging.info('Validation set mod count = %i' % len(validate_mod_count))
+        model_logging.info('Test set mod count = %i' % len(test_mod_count))
         return X_train_transformed, X_validate_transformed, X_test_transformed
 
     def _fit_dl_model(self):
-        model = self._terminal_node[1]
+        model_node = self._terminal_node
+        model_op = model_node.get_op()
         model.compile()
 
-        data = model.build_train_test_set(w_validate=True)
+        data = model_op.build_train_test_set(w_validate=True)
         X_train = data['X_train']
         X_validate = data['X_validate']
         X_test = data['X_test']
@@ -212,12 +229,11 @@ class ModelPipeline(object):
         print(df)
 
     def _build_pipeline(self):
-        model_def = self._terminal_node[1].get_model_def()
-        node_name = self._terminal_node[0]
-        if not isinstance(model, NeuralNetwork):
-            self._add_node(node_name, model_def)
-            self._pipeline = make_pipeline(*[node[1] for node in self._nodes])
-
+        self._add_node(self._terminal_node)
+        fit_transform_nodes = [node if node.is_fit_transform_node \
+                                    or node.is_tranform_node \
+                                    for node in self._nodes]
+        self._pipeline = make_pipeline(*fit_transform_nodes)
 
     def _verify_node_name(self, node_name: str):
         for node in self._nodes:
@@ -226,11 +242,20 @@ class ModelPipeline(object):
                 model_logging.fatal('assertion', 'Node with name \'%s\' already '
                                     'exists in this model pipeline.' % node_name)
 
-    def _add_node(self, node_name: str, node_op):
+    def _add_node(self, node):
         if not self._accepting_nodes:
             model_logging.fatal('assertion', 'Model pipeline is no longer'
                                 'accepting nodes. This is because a '
                                 'model node was already added. Model nodes '
                                 'are always terminal nodes in the pipeline.')
-        self._verify_node_name(node_name)
-        self._nodes.append((node_name, node_op,))
+        self._verify_node_name(node.get_name())
+        self._nodes.append(node)
+
+    # def _add_node(self, node_name: str, node_op):
+    #     if not self._accepting_nodes:
+    #         model_logging.fatal('assertion', 'Model pipeline is no longer'
+    #                             'accepting nodes. This is because a '
+    #                             'model node was already added. Model nodes '
+    #                             'are always terminal nodes in the pipeline.')
+    #     self._verify_node_name(node_name)
+    #     self._nodes.append((node_name, node_op,))

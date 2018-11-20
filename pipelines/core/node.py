@@ -1,4 +1,6 @@
 from core import model_logging
+from core.abstract_model import AbstractModel
+from core.nns.nn import NeuralNetwork
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from imblearn.over_sampling import SMOTE
@@ -38,6 +40,9 @@ class Node(object):
 
     def get_op(self):
         return self._op
+
+    def get_name(self):
+        return self._name
 
     @staticmethod
     def pca_node(name, n_components):
