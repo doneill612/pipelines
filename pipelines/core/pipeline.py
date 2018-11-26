@@ -111,7 +111,6 @@ class ModelPipeline(object):
             self._terminal_node = Node.dl_node(name=node_name, model=model)
         else:
             self._terminal_node = Node.ml_node(name=node_name, model=model)
-        self._terminal_node = model_node
         self._build_pipeline()
         self._accepting_nodes = False
         model_logging.info('Pipeline complete with %i nodes.' % len(self._nodes))
@@ -123,6 +122,12 @@ class ModelPipeline(object):
             # need to rework _params dictionary, individual models
             # should not have uniquely named parameter_grid entries.
             if model.get_parameter_grid() is not None:
+                if model.get_scorers() is None:
+                    model_logging.fatal('assertion', 'Parameter grid supplied, '
+                                        'but without scorers. In order '
+                                        'to perform grid search training, '
+                                        'scorers must be supplied in the '
+                                        'model parameter dictionary.')
                 self._fit_gs()
             else:
                 self._fit_ml_model()

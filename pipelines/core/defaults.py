@@ -40,16 +40,8 @@ Default base parameters that should be shared amongst all model types.
 
 When creating a parameter dict to pass to a model constructor, you can
 simply update a deepcopy of this dict.
-
-See __create_default_rf_params__().
 '''
 base_parameters = {
-    # Scoring metrics to be used in grid search training
-    'scorers': {
-        'precision_score': make_scorer(precision_score),
-        'recall_score': make_scorer(recall_score),
-        'f1_score': make_scorer(f1_score)
-    },
     # test % from a train-test split... results in 85% train 15% test
     'test_size': 0.15,
     # target column name being predicted by model
@@ -59,13 +51,24 @@ base_parameters = {
     'features': []
 }
 
+'''
+Scoring metrics which can be used in training. Typically used
+in grid search.
+'''
+scorers = {
+    # Scoring metrics to be used in training
+    'precision_score': make_scorer(precision_score),
+    'recall_score': make_scorer(recall_score),
+    'f1_score': make_scorer(f1_score)
+}
+
 _base_params = [k for k in base_parameters.keys()]
 
 required_rf_params = copy.deepcopy(_base_params)
-required_rf_params.append('rf_parameter_grid')
+required_rf_params.append('rf_params')
 
 required_gbm_params = copy.deepcopy(_base_params)
-required_gbm_params.append('gmb_parameter_grid')
+required_gbm_params.append('gbm_params')
 
 def __create_default_rf_params__():
     _default_rf_params = copy.deepcopy(base_parameters)

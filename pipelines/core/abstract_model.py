@@ -70,7 +70,7 @@ class AbstractModel(metaclass=ABCMeta):
         else: model_logging.info('Pandas DataFrame already loaded.')
 
     def get_scorers(self):
-        return self._params['scorers']
+        return self._params.get('scorers')
 
     def get_parameter_grid(self):
         return self._params.get('parameter_grid')
