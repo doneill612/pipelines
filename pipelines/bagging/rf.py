@@ -25,6 +25,3 @@ class RandomForest(AbstractModel):
 
     def set_model_def(self):
         self._model = RandomForestClassifier(n_jobs=-1)
-
-    def get_parameter_grid(self):
-        return self._params['rf_parameter_grid']

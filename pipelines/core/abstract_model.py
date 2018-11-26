@@ -72,16 +72,15 @@ class AbstractModel(metaclass=ABCMeta):
     def get_scorers(self):
         return self._params['scorers']
 
+    def get_parameter_grid(self):
+        return self._params.get('parameter_grid')
+
     def get_model_def(self):
         return self._model
 
     @abstractmethod
     def verify_parameters(self, params):
         model_logging.fatal('ni', 'Abstract method verify_parameters() must be implemented.')
-
-    @abstractmethod
-    def get_parameter_grid(self):
-        model_logging.fatal('ni', 'Abstract method get_parameter_grid() must be implemented.')
 
     @abstractmethod
     def set_model_def(self):

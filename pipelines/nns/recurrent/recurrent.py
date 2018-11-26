@@ -13,9 +13,6 @@ class RNN(NeuralNetwork):
     def to_string(self):
         return 'Recurrent Neural Network (RNN)'
 
-    def get_parameter_grid(self):
-        return self._params['lstm_parameter_grid']
-
     def set_model_def(self):
         self._model = Sequential()
 

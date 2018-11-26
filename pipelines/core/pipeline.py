@@ -107,9 +107,10 @@ class ModelPipeline(object):
             model_logging.fatal('assertion', 'Attempted to add unsupported '
                                 'model type. Models must be subclasses of '
                                 'AbstractModel.')
-        model_node = Node.dl_node(name=node_name, model=model) \
-                     if isinstance(model, NeuralNetwork) \
-                     else Node.ml_node(name=node_name, model=model)
+        if isinstance(mode, NeuralNetwork):
+            self._terminal_node = Node.dl_node(name=node_name, model=model)
+        else:
+            self._terminal_node = Node.ml_node(name=node_name, model=model)
         self._terminal_node = model_node
         self._build_pipeline()
         self._accepting_nodes = False
@@ -117,11 +118,11 @@ class ModelPipeline(object):
 
     def fit(self):
         model_logging.info('Fitting pipeline...')
-        model = self._terminal_node[1]
+        model = self._terminal_node.get_op()
         if not isinstance(model, NeuralNetwork):
             # need to rework _params dictionary, individual models
             # should not have uniquely named parameter_grid entries.
-            if model._params['parameter_grid'] is not None:
+            if model.get_parameter_grid() is not None:
                 self._fit_gs()
             else:
                 self._fit_ml_model()
@@ -179,8 +180,6 @@ class ModelPipeline(object):
         model_logging.info('Training complete!')
         model.evaluate(X_test, y_test)
 
-
-
     def _fit_gs(self, folds: int=10, refit: str='f1_score', n_jobs: int=-1):
         '''
         Sequentially executes the nodes in the model pipeline.
@@ -237,8 +236,7 @@ class ModelPipeline(object):
 
     def _verify_node_name(self, node_name: str):
         for node in self._nodes:
-            _node_name = node[0]
-            if _node_name == node_name:
+            if node_name == node.get_name():
                 model_logging.fatal('assertion', 'Node with name \'%s\' already '
                                     'exists in this model pipeline.' % node_name)
 
