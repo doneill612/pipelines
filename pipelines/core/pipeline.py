@@ -9,11 +9,10 @@ from sklearn.metrics import confusion_matrix
 from imblearn.pipeline import make_pipeline
 
 
-class ModelPipeline(object):
+class SingleModelPipeline(object):
     '''
-    Represents a machine learning model pipeline.
+    Represents a machine learning pipeline using a single model.
 
-    This is essentially a wrapper object around imblearn's Pipeline class.
     A model pipline is composed of a list of "nodes." Nodes are steps which
     are executed sequentially in order to normalize data, perform subsampling,
     dimensionality reduction, and eventually train a learning model.
@@ -116,11 +115,13 @@ class ModelPipeline(object):
         model_logging.info('Pipeline complete with %i nodes.' % len(self._nodes))
 
     def fit(self):
+        if self._accepting_nodes:
+            model_logging.fatal('Could not fit pipeline. Model pipeline is still '
+                                'accepting nodes, meaning no terminal (model) '
+                                'node has yet been added.')
         model_logging.info('Fitting pipeline...')
         model = self._terminal_node.get_op()
         if not isinstance(model, NeuralNetwork):
-            # need to rework _params dictionary, individual models
-            # should not have uniquely named parameter_grid entries.
             if model.get_parameter_grid() is not None:
                 if model.get_scorers() is None:
                     model_logging.fatal('assertion', 'Parameter grid supplied, '
@@ -128,13 +129,14 @@ class ModelPipeline(object):
                                         'to perform grid search training, '
                                         'scorers must be supplied in the '
                                         'model parameter dictionary.')
-                self._fit_gs()
+                self._fit_gs(model)
             else:
-                self._fit_ml_model()
+                # if no parameter grid, fit a single ml model configuration
+                self._fit_ml_model(model)
         else:
-            self._fit_dl_model()
+            self._fit_dl_model(model)
 
-    def _fit_ml_model(self):
+    def _fit_ml_model(self, model):
         # TODO
         pass
 
@@ -167,12 +169,10 @@ class ModelPipeline(object):
         model_logging.info('Test set mod count = %i' % len(test_mod_count))
         return X_train_transformed, X_validate_transformed, X_test_transformed
 
-    def _fit_dl_model(self):
-        model_node = self._terminal_node
-        model_op = model_node.get_op()
+    def _fit_dl_model(self, model):
         model.compile()
+        data = model.build_train_test_set(w_validate=True)
 
-        data = model_op.build_train_test_set(w_validate=True)
         X_train = data['X_train']
         X_validate = data['X_validate']
         X_test = data['X_test']
@@ -185,7 +185,7 @@ class ModelPipeline(object):
         model_logging.info('Training complete!')
         model.evaluate(X_test, y_test)
 
-    def _fit_gs(self, folds: int=10, refit: str='f1_score', n_jobs: int=-1):
+    def _fit_gs(self, model, folds: int=10, refit: str='f1_score', n_jobs: int=-1):
         '''
         Sequentially executes the nodes in the model pipeline.
 
@@ -207,11 +207,6 @@ class ModelPipeline(object):
             n_jobs : number of processors to be used in the training phase.
                      -1 indicates 'use all processors'
         '''
-        if self._accepting_nodes:
-            model_logging.fatal('Could not fit pipeline. Model pipeline is still '
-                                'accepting nodes, meaning no terminal (model) '
-                                'node has yet been added.')
-        model = self._terminal_node[1]
         parameter_grid = model.get_parameter_grid()
         scorers = model.get_scorers()
         skf = StratifiedKFold(n_splits=folds)
@@ -253,12 +248,3 @@ class ModelPipeline(object):
                                 'are always terminal nodes in the pipeline.')
         self._verify_node_name(node.get_name())
         self._nodes.append(node)
-
-    # def _add_node(self, node_name: str, node_op):
-    #     if not self._accepting_nodes:
-    #         model_logging.fatal('assertion', 'Model pipeline is no longer'
-    #                             'accepting nodes. This is because a '
-    #                             'model node was already added. Model nodes '
-    #                             'are always terminal nodes in the pipeline.')
-    #     self._verify_node_name(node_name)
-    #     self._nodes.append((node_name, node_op,))
